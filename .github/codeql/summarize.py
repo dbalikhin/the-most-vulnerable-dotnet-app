@@ -10,7 +10,8 @@ for path in sorted(root.glob("*.sarif")):
     sarif = json.loads(path.read_text(encoding="utf-8-sig"))
     for run in sarif.get("runs", []):
         driver = run["tool"]["driver"]
-        rules = {rule["id"]: rule for rule in driver.get("rules", [])}
+        components = [driver, *run["tool"].get("extensions", [])]
+        rules = {rule["id"]: rule for component in components for rule in component.get("rules", [])}
         findings = []
         for result in run.get("results", []):
             rule = rules.get(result.get("ruleId"), {})
@@ -46,4 +47,5 @@ with open(os.environ.get("GITHUB_STEP_SUMMARY", root / "step-summary.txt"), "a",
         f.write("| Rule | Findings |\n|---|---:|\n")
         for rule, count in sorted(s["by_rule"].items()):
             f.write(f"| {rule} | {count} |\n")
+
 
