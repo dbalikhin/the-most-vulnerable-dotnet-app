@@ -1,0 +1,69 @@
+name: CodeQL C# manual / security-extended
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: csharp / manual / security-extended
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.401
+      - name: Record experiment provenance
+        env:
+          MODE: manual
+          SUITE: security-extended
+          LANGUAGE: csharp
+        run: |
+          mkdir -p results
+          python3 - <<'PY'
+          import json, os, subprocess
+          record = {k: os.environ[k] for k in ("MODE", "SUITE", "LANGUAGE", "GITHUB_SHA", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT")}
+          record["source_tree"] = subprocess.check_output(["git", "rev-parse", "HEAD:DotnetSecurityFailures"], text=True).strip()
+          record["dotnet_sdk"] = subprocess.check_output(["dotnet", "--version"], text=True).strip()
+          record["codeql_bundle"] = "2.27.2"
+          record["baseline_commit"] = "60d060faf08079887e71a98498fe9a9d623e8ffc"
+          record["baseline_alerts"] = "Six baseline alerts recorded from user screenshot; baseline job logs archived locally."
+          with open("results/provenance.json", "w") as f: json.dump(record, f, indent=2)
+          PY
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: csharp
+          build-mode: manual
+          tools: https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.2/codeql-bundle-linux64.tar.zst
+          config-file: ./.github/codeql/security-extended.yml
+          dependency-caching: false
+      - name: Manual build including Razor generated sources
+        run: |
+          set -o pipefail
+          dotnet restore DotnetSecurityFailures/DotnetSecurityFailures.csproj 2>&1 | tee results/restore.log
+          dotnet build DotnetSecurityFailures/DotnetSecurityFailures.csproj --no-restore --no-incremental -p:UseSharedCompilation=false -p:EmitCompilerGeneratedFiles=true -v:normal 2>&1 | tee results/build.log
+      - name: Analyze and retain SARIF
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d
+        with:
+          category: /comparison/csharp/manual/security-extended
+          output: results
+          upload: false
+          upload-database: false
+      - name: Summarize findings
+        run: python3 .github/codeql/summarize.py results
+      - name: Preserve experiment results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-csharp-manual-security-extended
+          path: results/
+          if-no-files-found: error
+          retention-days: 90
+

@@ -1,0 +1,92 @@
+name: CodeQL mode comparison
+
+on:
+  push:
+    branches: [codeql-mode-comparison]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: ${{ matrix.language }} / ${{ matrix.build-mode }} / ${{ matrix.suite }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        language: [csharp]
+        build-mode: [none, autobuild, manual]
+        suite: [default, security-extended, all-security]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.401
+      - name: Record experiment provenance
+        env:
+          MODE: ${{ matrix.build-mode }}
+          SUITE: ${{ matrix.suite }}
+          LANGUAGE: ${{ matrix.language }}
+        run: |
+          mkdir -p results
+          python3 - <<'PY'
+          import json, os, subprocess
+          record = {k: os.environ[k] for k in ("MODE", "SUITE", "LANGUAGE", "GITHUB_SHA", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT")}
+          record["source_tree"] = subprocess.check_output(["git", "rev-parse", "HEAD:DotnetSecurityFailures"], text=True).strip()
+          record["dotnet_sdk"] = subprocess.check_output(["dotnet", "--version"], text=True).strip()
+          record["codeql_bundle"] = "2.27.2"
+          record["baseline_commit"] = "60d060faf08079887e71a98498fe9a9d623e8ffc"
+          record["baseline_alerts"] = "Six baseline alerts recorded from user screenshot; baseline job logs archived locally."
+          with open("results/provenance.json", "w") as f: json.dump(record, f, indent=2)
+          PY
+      - name: Initialize built-in query suite
+        if: matrix.suite != 'all-security'
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          tools: https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.2/codeql-bundle-linux64.tar.zst
+          queries: ${{ matrix.suite == 'default' && '' || matrix.suite }}
+          dependency-caching: false
+      - name: Initialize all security rules
+        if: matrix.suite == 'all-security'
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d
+        with:
+          languages: csharp
+          build-mode: ${{ matrix.build-mode }}
+          tools: https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.2/codeql-bundle-linux64.tar.zst
+          config-file: ./.github/codeql/all-security.yml
+          dependency-caching: false
+      - name: Autobuild
+        if: matrix.build-mode == 'autobuild'
+        uses: github/codeql-action/autobuild@24c54180a607b1449ed407dd24f251e4e9147c8d
+      - name: Manual build including Razor generated sources
+        if: matrix.build-mode == 'manual'
+        run: |
+          set -o pipefail
+          dotnet restore DotnetSecurityFailures/DotnetSecurityFailures.csproj 2>&1 | tee results/restore.log
+          dotnet build DotnetSecurityFailures/DotnetSecurityFailures.csproj --no-restore --no-incremental -p:UseSharedCompilation=false -p:EmitCompilerGeneratedFiles=true -v:normal 2>&1 | tee results/build.log
+      - name: Analyze and retain SARIF
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d
+        with:
+          category: /comparison/${{ matrix.language }}/${{ matrix.build-mode }}/${{ matrix.suite }}
+          output: results
+          upload: false
+          upload-database: false
+      - name: Summarize findings
+        run: python3 .github/codeql/summarize.py results
+      - name: Preserve experiment results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-${{ matrix.language }}-${{ matrix.build-mode }}-${{ matrix.suite }}
+          path: results/
+          if-no-files-found: error
+          retention-days: 90
+
