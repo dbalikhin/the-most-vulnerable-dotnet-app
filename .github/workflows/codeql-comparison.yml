@@ -45,23 +45,13 @@ jobs:
           record["baseline_alerts"] = "Six baseline alerts recorded from user screenshot; baseline job logs archived locally."
           with open("results/provenance.json", "w") as f: json.dump(record, f, indent=2)
           PY
-      - name: Initialize built-in query suite
-        if: matrix.suite != 'all-security'
+      - name: Initialize CodeQL
         uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
-        with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
-          tools: https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.2/codeql-bundle-linux64.tar.zst
-          queries: ${{ matrix.suite == 'default' && '' || matrix.suite }}
-          dependency-caching: false
-      - name: Initialize all security rules
-        if: matrix.suite == 'all-security'
-        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d
         with:
           languages: csharp
           build-mode: ${{ matrix.build-mode }}
           tools: https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.2/codeql-bundle-linux64.tar.zst
-          config-file: ./.github/codeql/all-security.yml
+          config-file: ./.github/codeql/${{ matrix.suite }}.yml
           dependency-caching: false
       - name: Autobuild
         if: matrix.build-mode == 'autobuild'
