@@ -25,7 +25,7 @@ jobs:
           SUITE: all-security
           LANGUAGE: csharp
         run: |
-          mkdir -p results
+          mkdir -p results evidence
           python3 - <<'PY'
           import json, os, subprocess
           record = {k: os.environ[k] for k in ("MODE", "SUITE", "LANGUAGE", "GITHUB_SHA", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT")}
@@ -34,7 +34,7 @@ jobs:
           record["codeql_bundle"] = "2.27.2"
           record["baseline_commit"] = "60d060faf08079887e71a98498fe9a9d623e8ffc"
           record["baseline_alerts"] = "Six baseline alerts recorded from user screenshot; baseline job logs archived locally."
-          with open("results/provenance.json", "w") as f: json.dump(record, f, indent=2)
+          with open("evidence/provenance.json", "w") as f: json.dump(record, f, indent=2)
           PY
       - name: Initialize CodeQL
         uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
@@ -60,7 +60,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: codeql-csharp-autobuild-all-security
-          path: results/
+          path: |
+            results/
+            evidence/
           if-no-files-found: error
           retention-days: 90
 
