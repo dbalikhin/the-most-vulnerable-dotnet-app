@@ -1,0 +1,50 @@
+name: Dotnetarium C# timing
+on:
+  push:
+    branches: [dotnetarium-csharp-timing]
+    paths:
+      - .github/workflows/dotnetarium-csharp-timing.yml
+      - .github/benchmarks/dotnetarium-timing.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scan:
+    name: C# / ${{ matrix.mode }} / ${{ matrix.budget }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        mode: [project, nb]
+        budget: [default, full, max]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.401
+      - name: Install Dotnetarium 2.6.0
+        run: dotnet tool install dotnetarium --version 2.6.0 --tool-path "$RUNNER_TEMP/dotnetarium-tool"
+      - name: Restore analysis references
+        run: |
+          mkdir -p timing-results
+          set -o pipefail
+          dotnet restore DotnetSecurityFailures/DotnetSecurityFailures.csproj --disable-parallel 2>&1 | tee timing-results/restore.log
+      - name: Run and time all C# rules
+        env:
+          SCAN_MODE: ${{ matrix.mode }}
+          SCAN_BUDGET: ${{ matrix.budget }}
+          TOOL_HOME: ${{ runner.temp }}/dotnetarium-tool
+        run: python3 .github/benchmarks/dotnetarium-timing.py
+      - name: Preserve timing and SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnetarium-csharp-timing-${{ matrix.mode }}-${{ matrix.budget }}
+          path: timing-results/
+          if-no-files-found: error
+          retention-days: 90
