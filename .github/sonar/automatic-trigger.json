@@ -1,5 +1,1 @@
-{
-  "source_commit": "0ed585f43562f72790f189ec3b5f692a34a934cd",
-  "purpose": "Sonar automatic versus compiled C# security comparison",
-  "requested_at": "2026-10-16T21:45:59.3275902Z"
-}
+{"run": "38972081516", "attempt": "1", "source_commit": "3dad0bf7ce1423427f2ef9c248eae68e40097219"}
