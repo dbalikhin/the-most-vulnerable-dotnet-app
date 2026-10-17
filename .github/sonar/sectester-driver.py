@@ -34,7 +34,9 @@ try:
         after={n:hashlib.sha256(pathlib.Path(n).read_bytes()).hexdigest() for n in before}
         if before!=after:raise RuntimeError('Application source changed.')
         with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as stream:stream.write('COMPARISON_COMMIT='+commit+'\n')
-        export({'analysis':analysis,'method':'Cloud Automatic Analysis; no user build'},commit,{'automatic_wall_seconds':time.monotonic()-start})
+        # An existing import snapshot gives collection time, not scan duration.
+        timing_key='snapshot_collection_seconds' if (OUTPUT/'automatic-provenance.json').exists() else 'automatic_wall_seconds'
+        export({'analysis':analysis,'method':'Cloud Automatic Analysis; no user build'},commit,{timing_key:time.monotonic()-start})
     elif MODE=='preflight':
         configure(False)
         before=json.loads(pathlib.Path('sonar-artifacts/automatic/source-manifest.json').read_text(encoding='utf-8'))
