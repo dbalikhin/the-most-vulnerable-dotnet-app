@@ -16,7 +16,7 @@ jobs:
       - name: Read eligibility and binding with existing token
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: python .github/sonar/sectester-driver.py diagnostic
+        run: python .github/sonar/sectester-driver.py repair
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: ${{ always() }}
         with:

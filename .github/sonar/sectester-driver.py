@@ -4,7 +4,14 @@ helper=pathlib.Path(__file__).with_name('report.py').read_text(encoding='utf-8')
 exec(compile(helper.split('\ntry:\n    if MODE ==')[0],__file__,'exec'))
 TARGET='dbalikhin/sectester-net-demo'
 try:
-    if MODE=='diagnostic':
+    if MODE=='repair':
+        api('settings/set',{'component':PROJECT,'key':'sonar.inclusions','values':'**/*.cs'},post=True)
+        # No combined comma-containing exclusion entry for Automatic Analysis.
+        api('settings/set',{'component':PROJECT,'key':'sonar.exclusions','values':'**/obj/**'},post=True)
+        api('autoscan/activation',{'projectKey':PROJECT,'enable':'true'},post=True)
+        result=api('settings/values',{'component':PROJECT,'keys':'sonar.inclusions,sonar.exclusions'})
+        save('fixed-analysis-scope.json',result);print(json.dumps(result))
+    elif MODE=='diagnostic':
         for path,params in [('autoscan/eligibility',{'projectKey':PROJECT}),('alm_integration/is_project_bound',{'project':PROJECT}),('settings/values',{'component':PROJECT,'keys':'sonar.inclusions,sonar.exclusions,sonar.sources,sonar.tests'}),('ce/activity',{'component':PROJECT,'ps':5})]:
             try:
                 result=api(path,params);save(path.replace('/','-')+'.json',result);print(path,json.dumps(result))
