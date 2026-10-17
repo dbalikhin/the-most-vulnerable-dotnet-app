@@ -1,0 +1,69 @@
+name: Dotnetarium 2.8.0 frozen-source comparison
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scan:
+    name: ${{ matrix.repo }} / ${{ matrix.profile }}
+    runs-on: windows-2025
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        include: [{"repo": "btcpayserver", "source_sha": "9e069403d8ba04add4d13f31d506b1d6f3779a62", "solution": "btcpayserver.sln", "profile": "full"}, {"repo": "btcpayserver", "source_sha": "9e069403d8ba04add4d13f31d506b1d6f3779a62", "solution": "btcpayserver.sln", "profile": "max"}, {"repo": "LANCommander", "source_sha": "47a1fc5353bf91a1977b5cdfd890464e36f2cb1f", "solution": "LANCommander.slnx", "profile": "full"}, {"repo": "LANCommander", "source_sha": "47a1fc5353bf91a1977b5cdfd890464e36f2cb1f", "solution": "LANCommander.slnx", "profile": "max"}, {"repo": "OrchardCore", "source_sha": "edb4f5f2fb632586963d331110613059731c6647", "solution": "OrchardCore.slnx", "profile": "full"}, {"repo": "OrchardCore", "source_sha": "edb4f5f2fb632586963d331110613059731c6647", "solution": "OrchardCore.slnx", "profile": "max"}, {"repo": "Remotely", "source_sha": "cb8f97fe849d520f81930a4ec6216c780ab3aba6", "solution": "Benchmark.slnx", "profile": "full"}, {"repo": "Remotely", "source_sha": "cb8f97fe849d520f81930a4ec6216c780ab3aba6", "solution": "Benchmark.slnx", "profile": "max"}, {"repo": "the-most-vulnerable-dotnet-app", "source_sha": "275e62e3b9c88a468a4c207d3ffb864385a1ac0c", "solution": "DotnetSecurityFailures.slnx", "profile": "full"}, {"repo": "the-most-vulnerable-dotnet-app", "source_sha": "275e62e3b9c88a468a4c207d3ffb864385a1ac0c", "solution": "DotnetSecurityFailures.slnx", "profile": "max"}]
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: target
+    env:
+      PROFILE: dotnetarium-2.8.0-${{ matrix.profile }}
+      TARGET_REPO: ${{ matrix.repo }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: harness
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: dbalikhin/${{ matrix.repo }}
+          ref: ${{ matrix.source_sha }}
+          path: target
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.401
+      - name: Recreate original solution scope and record frozen source
+        run: |
+          python ../harness/.github/dna-benchmark/scope.py
+          python ../harness/.github/dna-benchmark/evidence.py provenance
+      - name: Scan with latest pinned Action and CLI 2.8.0
+        id: dna
+        uses: dotnetarium/dotnetarium-action@518e4bc4472c534d0f3a6fed8a20131cd61caadd
+        with:
+          target: target/${{ matrix.solution }}
+          version: '2.8.0'
+          analysis-profile: ${{ matrix.profile }}
+          setup-dotnet: 'false'
+          restore: 'true'
+          configuration: Release
+          project-mode: 'false'
+          respect-editorconfig: 'false'
+          upload-sarif: 'false'
+          sarif-file: target/results/dotnetarium.sarif
+      - name: Group reports by rule and location
+        if: ${{ !cancelled() }}
+        run: python ../harness/.github/dna-benchmark/evidence.py group
+      - name: Preserve SARIF and source evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: dna-2.8.0-${{ matrix.repo }}-${{ matrix.profile }}
+          path: |
+            target/results/
+            target/benchmark-evidence/
+          retention-days: 14
