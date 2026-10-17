@@ -52,7 +52,7 @@ try:
         if before!=after:raise RuntimeError('Application source changed.')
         with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as stream:stream.write('COMPARISON_COMMIT='+commit+'\n')
         # An existing import snapshot gives collection time, not scan duration.
-        timing_key='snapshot_collection_seconds' if (OUTPUT/'automatic-provenance.json').exists() else 'automatic_wall_seconds'
+        timing_key='observation_wait_seconds'
         export({'analysis':analysis,'method':'Cloud Automatic Analysis; no user build'},commit,{timing_key:time.monotonic()-start})
     elif MODE=='preflight':
         configure(False)
