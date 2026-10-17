@@ -4,7 +4,12 @@ helper=pathlib.Path(__file__).with_name('report.py').read_text(encoding='utf-8')
 exec(compile(helper.split('\ntry:\n    if MODE ==')[0],__file__,'exec'))
 TARGET='dbalikhin/sectester-net-demo'
 try:
-    if MODE=='automatic':
+    if MODE=='diagnostic':
+        for path,params in [('autoscan/eligibility',{'projectKey':PROJECT}),('alm_integration/is_project_bound',{'project':PROJECT}),('settings/values',{'component':PROJECT,'keys':'sonar.inclusions,sonar.exclusions,sonar.sources,sonar.tests'}),('ce/activity',{'component':PROJECT,'ps':5})]:
+            try:
+                result=api(path,params);save(path.replace('/','-')+'.json',result);print(path,json.dumps(result))
+            except Exception as error:print(path,str(error).replace(TOKEN,'[redacted]'))
+    elif MODE=='automatic':
         try:api('components/show',{'component':PROJECT})
         except RuntimeError as e:
             if 'HTTP 404' not in str(e):raise
