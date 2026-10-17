@@ -29,16 +29,9 @@ try:
         while time.monotonic()-start<1200:
             analyses=api('project_analyses/search',{'project':PROJECT,'ps':20})['analyses']
             with urllib.request.urlopen('https://api.github.com/repos/'+TARGET+'/commits/master',timeout=60) as response:current_head=json.load(response)['sha']
-            fresh=next((a for a in analyses if a.get('revision')==current_head and current_head!=baseline),None)
+            fresh=next((a for a in analyses if a.get('revision') and a['revision']!=baseline),None)
             if fresh:
-                commit=current_head;analysis=fresh;break
-            initial=next((a for a in analyses if a.get('revision')==baseline),None)
-            if initial:
-                # Preserve the actual import record, rather than wait indefinitely
-                # for a webhook. Do not claim it used the later configured profile.
-                commit=baseline;analysis=initial
-                save('automatic-provenance.json',{'trigger':'initial project import','profile_parity_verified':False,'later_metadata_trigger_produced_analysis':False,'coverage_note':'No C# measured in initial record; not a successful all-rules C# scan.'})
-                break
+                commit=fresh['revision'];analysis=fresh;break
             with urllib.request.urlopen('https://api.github.com/repos/'+TARGET+'/commits/master',timeout=60) as response:commit=json.load(response)['sha']
             if commit!=baseline:
                 analyses=api('project_analyses/search',{'project':PROJECT,'ps':20})['analyses']
