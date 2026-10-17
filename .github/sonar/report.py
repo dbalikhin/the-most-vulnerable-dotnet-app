@@ -22,7 +22,7 @@ TOKEN = os.environ["SONAR_TOKEN"]
 
 
 def api(path, parameters=None, post=False):
-    encoded = urllib.parse.urlencode(parameters or {}).encode()
+    encoded = urllib.parse.urlencode(parameters or {}, doseq=True).encode()
     url = HOST + "/api/" + path
     if not post and encoded:
         url += "?" + encoded.decode()
@@ -86,9 +86,15 @@ def configure(automatic):
         "language": "cs", "qualityProfile": profile_name}, post=True)
     save("security-rule-manifest.json", {"profile": profile, "rule_count": len(expected),
         "rules": sorted(expected.values(), key=lambda item: item["key"])})
-    for key, value in {"sonar.inclusions": "**/*.cs,**/*.cshtml,**/*.razor",
-                       "sonar.exclusions": "**/node_modules/**,**/bin/**,**/obj/**"}.items():
+    scopes={"sonar.inclusions": ["**/*.cs", "**/*.cshtml", "**/*.razor"],
+            "sonar.exclusions": ["**/node_modules/**", "**/bin/**", "**/obj/**"]}
+    for key, value in scopes.items():
         api("settings/set", {"component": PROJECT, "key": key, "values": value}, post=True)
+    effective=api("settings/values", {"component": PROJECT, "keys": ",".join(scopes)})
+    actual={item['key']:item.get('values',[]) for item in effective['settings']}
+    if any(actual.get(key)!=value for key,value in scopes.items()):
+        raise RuntimeError('Source-scope settings did not round-trip as separate pattern entries.')
+    save('effective-source-scope.json',effective)
     api("settings/set", {"component": PROJECT, "key": "sonar.cs.analyzeRazorCode", "value": "true"}, post=True)
     api("autoscan/activation", {"projectKey": PROJECT, "enable": str(automatic).lower()}, post=True)
     tracked = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")

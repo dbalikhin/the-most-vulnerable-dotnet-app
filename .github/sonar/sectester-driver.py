@@ -22,11 +22,16 @@ try:
             if 'HTTP 404' not in str(e):raise
             save('provision.json',api('alm_integration/provision_projects',{'organization':ORG,'installationKeys':TARGET+'|1422891019'},post=True))
         configure(True)
+        api('settings/set',{'component':PROJECT,'key':'sonar.inclusions','values':'src/App/**/*.cs'},post=True)
         baseline=os.environ['TARGET_SOURCE_SHA']
         print('READY_FOR_TRIGGER: waiting for metadata-only commit on '+TARGET,flush=True)
         start=time.monotonic()
         while time.monotonic()-start<1200:
             analyses=api('project_analyses/search',{'project':PROJECT,'ps':20})['analyses']
+            with urllib.request.urlopen('https://api.github.com/repos/'+TARGET+'/commits/master',timeout=60) as response:current_head=json.load(response)['sha']
+            fresh=next((a for a in analyses if a.get('revision')==current_head and current_head!=baseline),None)
+            if fresh:
+                commit=current_head;analysis=fresh;break
             initial=next((a for a in analyses if a.get('revision')==baseline),None)
             if initial:
                 # Preserve the actual import record, rather than wait indefinitely
