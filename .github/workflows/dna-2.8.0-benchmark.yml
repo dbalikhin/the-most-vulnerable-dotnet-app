@@ -1,5 +1,7 @@
 name: Dotnetarium 2.8.0 frozen-source comparison
 on:
+  push:
+    branches: [dna-2.8.0-benchmark]
   workflow_dispatch:
 permissions:
   contents: read
