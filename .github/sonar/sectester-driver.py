@@ -5,7 +5,7 @@ exec(compile(helper.split('\ntry:\n    if MODE ==')[0],__file__,'exec'))
 TARGET='dbalikhin/sectester-net-demo'
 try:
     if MODE=='repair':
-        api('settings/set',{'component':PROJECT,'key':'sonar.inclusions','values':'**/*.cs'},post=True)
+        api('settings/set',{'component':PROJECT,'key':'sonar.inclusions','values':'src/App/**/*.cs'},post=True)
         # No combined comma-containing exclusion entry for Automatic Analysis.
         api('settings/set',{'component':PROJECT,'key':'sonar.exclusions','values':'**/obj/**'},post=True)
         api('autoscan/activation',{'projectKey':PROJECT,'enable':'true'},post=True)
