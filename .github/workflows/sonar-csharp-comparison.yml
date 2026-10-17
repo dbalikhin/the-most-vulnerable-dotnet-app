@@ -1,4 +1,4 @@
-name: Sonar automatic single-pattern C# control
+name: Sonar automatic C# security - five apps
 on:
   workflow_dispatch:
 permissions:
@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
       max-parallel: 5
       matrix:
-        include: [{"repo": "the-most-vulnerable-dotnet-app", "branch": "main", "source_sha": "f47a1d9a5320f7f7795b0dccf1792dc44e473da8", "project": "dbalikhin_the-most-vulnerable-dotnet-app"}]
+        include: [{"repo": "btcpayserver", "branch": "master", "source_sha": "1ec13f01610e2b03d6e544de22a7303ef77b864b", "project": "dbalikhin_btcpayserver"}, {"repo": "LANCommander", "branch": "main", "source_sha": "96e85d6b48227175afca0dd5d4a2cd93849c5385", "project": "dbalikhin_LANCommander"}, {"repo": "OrchardCore", "branch": "main", "source_sha": "f4cd34a929cd7af1495866e4d30404d25a97c3b1", "project": "dbalikhin_OrchardCore"}, {"repo": "Remotely", "branch": "master", "source_sha": "96c7d0075232aa378a10206b831a7955146c0ea0", "project": "dbalikhin_Remotely"}, {"repo": "the-most-vulnerable-dotnet-app", "branch": "main", "source_sha": "f47a1d9a5320f7f7795b0dccf1792dc44e473da8", "project": "dbalikhin_the-most-vulnerable-dotnet-app"}]
     concurrency:
       group: sonar-automatic-${{ matrix.repo }}
       cancel-in-progress: false
@@ -26,7 +26,6 @@ jobs:
       TARGET_BRANCH: ${{ matrix.branch }}
       TARGET_SOURCE_SHA: ${{ matrix.source_sha }}
       TRIGGER_RUN_ID: 38998708664
-      C_SHARP_ONLY: 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
