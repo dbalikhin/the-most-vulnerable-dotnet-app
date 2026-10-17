@@ -5,9 +5,11 @@ sys.argv[1]='automatic'
 helper=pathlib.Path(__file__).with_name('report.py').read_text(encoding='utf-8')
 exec(compile(helper.split('\ntry:\n    if MODE ==')[0],__file__,'exec'))
 REPO=os.environ['TARGET_REPO'];BRANCH=os.environ['TARGET_BRANCH'];BASE=os.environ['TARGET_SOURCE_SHA']
+TRIGGER_RUN=os.environ.get('TRIGGER_RUN_ID',os.environ['GITHUB_RUN_ID'])
 
 def public(path):
-    request=urllib.request.Request('https://api.github.com/repos/dbalikhin/'+REPO+'/'+path,headers={'Accept':'application/vnd.github+json','User-Agent':'sonar-automatic-comparison'})
+    headers={'Accept':'application/vnd.github+json','User-Agent':'sonar-automatic-comparison','Authorization':'Bearer '+os.environ['GH_TOKEN']}
+    request=urllib.request.Request('https://api.github.com/repos/dbalikhin/'+REPO+'/'+path,headers=headers)
     with urllib.request.urlopen(request,timeout=60) as response:return json.load(response)
 
 def manifest():
@@ -30,7 +32,7 @@ try:
             if revision!=BASE:
                 marker=public('contents/.github/sonar/automatic-trigger.json?ref='+revision)
                 content=json.loads(base64.b64decode(marker['content']))
-                if str(content.get('run'))==os.environ['GITHUB_RUN_ID']:
+                if str(content.get('run'))==TRIGGER_RUN:
                     candidate=revision
                     analyses=api('project_analyses/search',{'project':PROJECT,'ps':20})['analyses']
                     if analyses and analyses[0].get('revision')==candidate:
@@ -48,7 +50,7 @@ try:
         trigger_time=datetime.datetime.fromisoformat(trigger_date.replace('Z','+00:00'))
         observed=datetime.datetime.now(datetime.timezone.utc)
         timing={'metadata_commit_to_observation_seconds':(observed-trigger_time).total_seconds(),'observation_wait_seconds':time.monotonic()-start,'scanner_wall_seconds':None,'server_execution_seconds':task.get('executionTimeMs',0)/1000 if task else None,'timing_note':'Commit-to-observation includes queue, hosted scanning, server processing, indexing and polling. Cloud scanner runtime is not separately exposed.'}
-        save('trigger.json',{'commit':candidate,'baseline_commit':BASE,'triggered_at':trigger_date,'observed_at':observed.isoformat(),'run':os.environ['GITHUB_RUN_ID']})
+        save('trigger.json',{'commit':candidate,'baseline_commit':BASE,'triggered_at':trigger_date,'observed_at':observed.isoformat(),'trigger_run':TRIGGER_RUN,'collector_run':os.environ['GITHUB_RUN_ID']})
         export({'analysis':analysis,'method':'SonarQube Cloud Automatic Analysis; no user build','compute_task':task},candidate,timing)
         latest=api('project_analyses/search',{'project':PROJECT,'ps':1})['analyses'][0]
         if latest['key']!=analysis['key']:raise RuntimeError('Project analysis changed during export; snapshot consistency unverified.')

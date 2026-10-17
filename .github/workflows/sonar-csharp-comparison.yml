@@ -25,6 +25,7 @@ jobs:
       TARGET_REPO: ${{ matrix.repo }}
       TARGET_BRANCH: ${{ matrix.branch }}
       TARGET_SOURCE_SHA: ${{ matrix.source_sha }}
+      TRIGGER_RUN_ID: 38998708664
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -40,6 +41,7 @@ jobs:
       - name: Preserve prior results and configure corrected security scope
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: python ../harness/.github/sonar/automatic-five.py prepare
       - name: Publish readiness for source-preserving scan trigger
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -51,6 +53,7 @@ jobs:
         timeout-minutes: 47
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: python ../harness/.github/sonar/automatic-five.py observe
       - name: Preserve results, source checks and timings
         if: ${{ !cancelled() }}
