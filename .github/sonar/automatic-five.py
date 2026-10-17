@@ -22,6 +22,11 @@ try:
         save('previous-csharp-issues.json',pages('issues/search',{'componentKeys':PROJECT,'languages':'cs','resolved':'false'},'issues'))
         save('previous-hotspots.json',pages('hotspots/search',{'projectKey':PROJECT},'hotspots'))
         configure(True)
+        if os.environ.get('C_SHARP_ONLY')=='true':
+            api('settings/set',{'component':PROJECT,'key':'sonar.inclusions','values':'**/*.cs'},post=True)
+            save('single-pattern-scope.json',api('settings/values',{'component':PROJECT,'keys':'sonar.inclusions,sonar.exclusions'}))
+            api('autoscan/activation',{'projectKey':PROJECT,'enable':'false'},post=True)
+            api('autoscan/activation',{'projectKey':PROJECT,'enable':'true'},post=True)
         save('readiness.json',{'repository':'dbalikhin/'+REPO,'branch':BRANCH,'baseline_commit':BASE,'run_id':os.environ['GITHUB_RUN_ID'],'project':PROJECT,'state':'ready_for_metadata_trigger','prepared_at':datetime.datetime.now(datetime.timezone.utc).isoformat()})
         print('Ready: '+REPO,flush=True)
     elif phase=='observe':
@@ -36,6 +41,9 @@ try:
                     candidate=revision
                     analyses=api('project_analyses/search',{'project':PROJECT,'ps':20})['analyses']
                     if analyses and analyses[0].get('revision')==candidate:
+                        previous=json.loads((OUTPUT/'previous-analyses.json').read_text(encoding='utf-8'))['analyses']
+                        if os.environ.get('C_SHARP_ONLY')=='true' and analyses[0]['key'] in {a['key'] for a in previous}:
+                            time.sleep(15);continue
                         analysis=analyses[0];break
             time.sleep(15)
         else:raise RuntimeError('Timed out waiting for this run metadata commit to be analyzed; coverage remains unverified.')

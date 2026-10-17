@@ -1,0 +1,64 @@
+name: Sonar automatic C# security - five apps
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  automatic:
+    name: ${{ matrix.repo }}
+    runs-on: windows-2025
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        include: [{"repo": "btcpayserver", "branch": "master", "source_sha": "1ec13f01610e2b03d6e544de22a7303ef77b864b", "project": "dbalikhin_btcpayserver"}, {"repo": "LANCommander", "branch": "main", "source_sha": "96e85d6b48227175afca0dd5d4a2cd93849c5385", "project": "dbalikhin_LANCommander"}, {"repo": "OrchardCore", "branch": "main", "source_sha": "f4cd34a929cd7af1495866e4d30404d25a97c3b1", "project": "dbalikhin_OrchardCore"}, {"repo": "Remotely", "branch": "master", "source_sha": "96c7d0075232aa378a10206b831a7955146c0ea0", "project": "dbalikhin_Remotely"}, {"repo": "the-most-vulnerable-dotnet-app", "branch": "main", "source_sha": "f47a1d9a5320f7f7795b0dccf1792dc44e473da8", "project": "dbalikhin_the-most-vulnerable-dotnet-app"}]
+    concurrency:
+      group: sonar-automatic-${{ matrix.repo }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: target
+    env:
+      SONAR_PROJECT_KEY: ${{ matrix.project }}
+      TARGET_REPO: ${{ matrix.repo }}
+      TARGET_BRANCH: ${{ matrix.branch }}
+      TARGET_SOURCE_SHA: ${{ matrix.source_sha }}
+      TRIGGER_RUN_ID: 38998708664
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: harness
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: dbalikhin/${{ matrix.repo }}
+          ref: ${{ matrix.source_sha }}
+          path: target
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Preserve prior results and configure corrected security scope
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: python ../harness/.github/sonar/automatic-five.py prepare
+      - name: Publish readiness for source-preserving scan trigger
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: sonar-ready-${{ matrix.repo }}
+          path: target/sonar-artifacts/automatic/
+          retention-days: 14
+      - name: Wait for automatic scan and export C# security findings
+        timeout-minutes: 47
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: python ../harness/.github/sonar/automatic-five.py observe
+      - name: Preserve results, source checks and timings
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: sonar-automatic-corrected-${{ matrix.repo }}
+          path: target/sonar-artifacts/automatic/
+          retention-days: 14
